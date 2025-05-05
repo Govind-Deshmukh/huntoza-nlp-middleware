@@ -1,0 +1,6 @@
+from bs4 import BeautifulSoup
+
+def extract_text_from_html(html_content):
+    ...
+def extract_job_url(content, is_html=True):
+    ...
