@@ -1,6 +1,9 @@
 from functools import lru_cache
 from utils.html_utils import extract_text_from_html, extract_job_url
-from utils.regex_extractors import *
+from utils.regex_extractors import (
+    extract_job_title, extract_company, extract_location, 
+    extract_job_type, extract_salary, extract_description
+)
 from utils.nlp_helpers import enhance_extraction_with_nlp
 
 
@@ -25,7 +28,8 @@ def process_job_content(content, is_html=True):
         "contactPerson": None,  # This would be linked to contacts in frontend
         "notes": "",
         "priority": "medium",
-        "favorite": False
+        "favorite": False,
+        "skills": []  # Additional field for extracted skills
     }
     
     # Extract clean text from HTML if needed
@@ -40,18 +44,29 @@ def process_job_content(content, is_html=True):
     result["jobDescription"] = extract_description(clean_text)
     result["jobUrl"] = extract_job_url(content, is_html)
     
-    # Use NLP model for any fields that weren't successfully extracted
-    if not result["position"] or not result["company"]:
-        nlp_results = enhance_extraction_with_nlp(clean_text)
-        
-        # Only update fields that weren't successfully extracted with rule-based approach
-        if not result["position"] and nlp_results["title"]:
-            result["position"] = nlp_results["title"]
-        if not result["company"] and nlp_results["company"]:
-            result["company"] = nlp_results["company"]
-        if not result["jobLocation"] and nlp_results["location"]:
-            result["jobLocation"] = nlp_results["location"]
+    # Use NLP model for enhancement and to fill in missing fields
+    nlp_results = enhance_extraction_with_nlp(clean_text)
+    
+    # Update fields that weren't successfully extracted with rule-based approach
+    if not result["position"] and nlp_results["title"]:
+        result["position"] = nlp_results["title"]
+    if not result["company"] and nlp_results["company"]:
+        result["company"] = nlp_results["company"]
+    if not result["jobLocation"] and nlp_results["location"]:
+        result["jobLocation"] = nlp_results["location"]
+    if not result["jobType"] and nlp_results["job_type"]:
+        result["jobType"] = nlp_results["job_type"]
+    
+    # Salary is a special case - merge results intelligently
+    if result["salary"]["min"] == 0 and result["salary"]["max"] == 0:
+        result["salary"] = nlp_results["salary"]
+    
+    # Add extracted skills to the result
+    result["skills"] = nlp_results["skills"]
+    
+    # If rule-based extraction fails or returns empty values, 
+    # generate a summary for job description using NLP
+    if not result["jobDescription"] or len(result["jobDescription"]) < 50:
+        result["jobDescription"] = clean_text[:1000]  # Use first 1000 chars as fallback
     
     return result
-
-
