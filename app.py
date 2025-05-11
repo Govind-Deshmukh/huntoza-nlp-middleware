@@ -8,6 +8,7 @@ import os
 import time
 import logging
 import json
+import re
 from functools import wraps
 from datetime import datetime
 
@@ -50,14 +51,17 @@ def throttle_requests(max_requests=10, window_seconds=60):
     Rate limiting decorator that restricts endpoints to a maximum number of requests
     in a given time window.
     """
+    # Create the request_history list in the decorator's scope
     request_history = []
     
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
+            # Use nonlocal to indicate we're using the decorator's request_history
+            nonlocal request_history
+            
             # Clean up old requests
             current_time = time.time()
-            global request_history
             request_history = [t for t in request_history if current_time - t < window_seconds]
             
             # Check if we're over the limit
@@ -363,8 +367,6 @@ def extract_education_requirements(text):
 
 def extract_experience_level(text):
     """Extract experience level from text"""
-    import re
-    
     text_lower = text.lower()
     
     # Look for X+ years, X years of experience, etc.
