@@ -88,6 +88,73 @@ def process_job_content(content, is_html=True):
             result["jobDescription"] = clean_text[:1000] if len(clean_text) > 1000 else clean_text
         return result
 
+def merge_job_data(html_data, text_data):
+    """
+    Merge job data extracted from HTML and plain text sources,
+    selecting the most complete and reliable information.
+    
+    Args:
+        html_data (dict): Job data extracted from HTML
+        text_data (dict): Job data extracted from plain text
+        
+    Returns:
+        dict: Merged job data with the best information from both sources
+    """
+    logger.info("Merging job data from HTML and text sources")
+    
+    # Initialize with the HTML data as the base
+    merged_data = html_data.copy()
+    
+    # For each field, use the best data from either source
+    
+    # Position: Prefer HTML metadata for position, but use text if HTML is empty
+    if not merged_data["position"] and text_data["position"]:
+        merged_data["position"] = text_data["position"]
+    
+    # Company: Prefer HTML metadata for company, but use text if HTML is empty
+    if not merged_data["company"] and text_data["company"]:
+        merged_data["company"] = text_data["company"]
+    
+    # Location: Choose the more specific or complete location
+    if text_data["jobLocation"] and (
+        not merged_data["jobLocation"] or 
+        (text_data["jobLocation"].lower() == "remote" and merged_data["jobLocation"].lower() != "remote") or
+        (len(text_data["jobLocation"]) > len(merged_data["jobLocation"]) and len(merged_data["jobLocation"]) < 5)
+    ):
+        merged_data["jobLocation"] = text_data["jobLocation"]
+    
+    # Job Type: Keep the most specific job type
+    # If HTML finds "remote" but text finds a more specific type, use text
+    if merged_data["jobType"] == "remote" and text_data["jobType"] != "remote":
+        merged_data["jobType"] = text_data["jobType"]
+    
+    # Salary: Use the more complete salary information
+    # Prefer data where both min and max are present
+    if (text_data["salary"]["min"] > 0 and text_data["salary"]["max"] > 0) and not (
+        merged_data["salary"]["min"] > 0 and merged_data["salary"]["max"] > 0
+    ):
+        merged_data["salary"] = text_data["salary"]
+    # If HTML has no salary info but text does, use text
+    elif merged_data["salary"]["min"] == 0 and merged_data["salary"]["max"] == 0 and (
+        text_data["salary"]["min"] > 0 or text_data["salary"]["max"] > 0
+    ):
+        merged_data["salary"] = text_data["salary"]
+    
+    # Job Description: Use the longer and more detailed description
+    if len(text_data["jobDescription"]) > len(merged_data["jobDescription"]) * 1.5:
+        # Text description is significantly longer, use it
+        merged_data["jobDescription"] = text_data["jobDescription"]
+    elif not merged_data["jobDescription"] and text_data["jobDescription"]:
+        # HTML has no description but text does
+        merged_data["jobDescription"] = text_data["jobDescription"]
+    
+    # Job URL: Prefer the URL from HTML metadata but use text as fallback
+    if not merged_data["jobUrl"] and text_data["jobUrl"]:
+        merged_data["jobUrl"] = text_data["jobUrl"]
+    
+    logger.info("Job data merging completed successfully")
+    return merged_data
+
 def clean_and_validate_job_data(job_data, full_text):
     """
     Clean and validate extracted job data, filling in defaults if needed.
