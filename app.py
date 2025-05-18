@@ -29,8 +29,7 @@ logger = logging.getLogger(__name__)
 # Ollama configuration
 OLLAMA_URL = os.environ.get('OLLAMA_URL', 'http://localhost:11434')
 OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3.2')
-OLLAMA_TIMEOUT = int(os.environ.get('OLLAMA_TIMEOUT', 30))
-
+OLLAMA_TIMEOUT = int(os.environ.get('OLLAMA_TIMEOUT', 240))
 def check_ollama_availability():
     """Check if Ollama is available and running"""
     try:
