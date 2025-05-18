@@ -1,32 +1,64 @@
 version: "3.8"
 
 services:
-  flask-middleware:
-    build: .
-    ports:
-      - "5000:5000"
-    environment:
-      - OLLAMA_URL=http://ollama:11434
-    depends_on:
-      - ollama
-    networks:
-      - app-network
-
   ollama:
     image: ollama/ollama:latest
+    container_name: nlp-ollama-1
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:
-      - OLLAMA_HOST=http://0.0.0.0:11434
-      - OLLAMA_CONTEXT_LENGTH=4096
+      - OLLAMA_HOST=0.0.0.0:11434
+    # Fix 1: Use ollama command instead of curl for health check
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s # Give Ollama time to start up
     networks:
       - app-network
+    restart: unless-stopped
 
-volumes:
-  ollama_data:
+  # Init container to pull models after Ollama is healthy
+  ollama-init:
+    image: curlimages/curl:latest
+    container_name: nlp-ollama-init-1
+    depends_on:
+      ollama:
+        condition: service_healthy # Wait for Ollama to be healthy
+    networks:
+      - app-network
+    # Pull your desired model
+    command: >
+      sh -c "
+      echo 'Waiting for Ollama to be ready...' &&
+      sleep 10 &&
+      echo 'Pulling llama3.2 model...' &&
+      curl -X POST http://ollama:11434/api/pull -d '{\"name\":\"llama3.2\"}' &&
+      echo 'Model pull complete!'
+      "
+    restart: "no" # Don't restart this container
+
+  flask-middleware:
+    build: .
+    container_name: nlp-flask-middleware-1
+    ports:
+      - "5000:5000"
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  ollama_data:
