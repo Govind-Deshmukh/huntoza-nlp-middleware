@@ -1,5 +1,4 @@
 version: "3.8"
-
 services:
   # Flask middleware application
   flask-middleware:
@@ -9,7 +8,7 @@ services:
     environment:
       - DEBUG=False
       - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=llama2
+      - OLLAMA_MODEL=llama3.2 # Changed from llama2 to llama3.2
       - OLLAMA_TIMEOUT=30
       - MAX_CONCURRENT_OLLAMA=3
     depends_on:
